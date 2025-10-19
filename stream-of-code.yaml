@@ -8,7 +8,7 @@ version: "3.8"
 services:
   cs-generator:
     image: csgenerator
-    command: "TEST"
+    command: ["TEST"]
     volumes:
       - qc-volume:/QualitasCorpus
     environment:
