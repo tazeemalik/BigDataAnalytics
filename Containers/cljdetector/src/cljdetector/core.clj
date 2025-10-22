@@ -8,26 +8,26 @@
 (def source-dir (or (System/getenv "SOURCEDIR") "/tmp"))
 (def source-type #".*\.java")
 
-(defn- iso-now []
-  "Return ISO-8601 timestamp string for now."
-  (str (java.time.Instant/now)))
-
 (defn ts-println
-  "Print a timestamped message to stdout and also write the message to the DB.
-   Accepts any number of args (strings or values convertible with str)."
+  "Print timestamped message to stdout and also try to write to DB via storage/addUpdate!
+   Use ns-resolve to lookup addUpdate! so we do not crash at compile time if not present.
+   Errors while attempting DB write are caught and printed but do not stop execution."
   [& args]
-  (let [text (->> args (map str) (string/join " "))
-        iso  (iso-now)
+  (let [iso  (.toString (java.time.LocalDateTime/now))
         ts   (System/currentTimeMillis)
-        out  (str iso " - " text)]
-    ;; print to stdout
-    (println out)
-    ;; attempt to write to DB; do not let DB errors crash program
+        msg  (apply str (interpose " " args))]
+    ;; Always print locally
+    (println iso msg)
+    ;; Try to store the update (non-fatal if it fails or method missing)
     (try
-      (when (and (bound? #'storage) storage)
-        (storage/add-update! {:ts ts :iso iso :message text}))
+      (let [add-fn (ns-resolve 'cljdetector.storage.storage 'addUpdate!)]
+        (when (and add-fn (fn? (deref add-fn)))
+          ;; call resolved var (deref to get var->fn)
+          ((deref add-fn) {:ts ts :iso iso :msg msg})))
       (catch Exception e
-        (println "ts-println: failed to write status to DB:" (.getMessage e))))))
+        (println "ts-println: failed to write status update to DB:" (.getMessage e))))
+    ;; return nil for convenience
+    nil))
 
 (defn maybe-clear-db [args]
   (when (some #{"CLEAR"} (map string/upper-case args))
@@ -38,7 +38,7 @@
   (when-not (some #{"NOREAD"} (map string/upper-case args))
     (ts-println "Reading and Processing files...")
     (let [chunk-param (System/getenv "CHUNKSIZE")
-          chunk-size  (if chunk-param (Integer/parseInt chunk-param) DEFAULT-CHUNKSIZE)
+          chunk-size (if chunk-param (Integer/parseInt chunk-param) DEFAULT-CHUNKSIZE)
           file-handles (source-processor/traverse-directory source-dir source-type)
           chunks (source-processor/chunkify chunk-size file-handles)]
       (ts-println "Storing files...")
@@ -74,13 +74,6 @@
    - NoCloneID do not detect clones
    - List print a list of all clones"
   [& args]
-  ;; Ensure index for status updates (best-effort; do not fail startup if it errors)
-  (try
-    (when (and (bound? #'storage) storage)
-      (storage/ensure-status-index!))
-    (catch Exception e
-      (println "Warning: could not ensure statusUpdates index:" (.getMessage e))))
-
   (maybe-clear-db args)
   (maybe-read-files args)
   (maybe-detect-clones args)

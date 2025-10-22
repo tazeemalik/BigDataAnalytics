@@ -28,10 +28,22 @@ services:
     volumes:
       - dbstorage:/data/db
       - dbconfig:/data/configdb
-    
+
+  monitortool:
+    build: ./Containers/MonitorTool
+    image: monitortool:latest
+    environment:
+      - DBHOST=dbstorage
+      - DBNAME=cloneDetector
+      - INTERVAL_MS=10000
+      - PORT=4000
+    ports:
+      - "4000:4000"
+    depends_on:
+      - dbstorage
+
 volumes:
   dbstorage:
   dbconfig:
   qc-volume:
     external: true
-    
