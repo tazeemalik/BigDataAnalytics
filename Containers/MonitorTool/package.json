@@ -1,13 +1,14 @@
 {
-  "name": "monitor-tool",
+  "name": "monitortool",
   "version": "1.0.0",
-  "description": "MonitorTool for cljDetector - polls MongoDB and shows stats",
-  "main": "index.js",
+  "main": "server.js",
+  "license": "MIT",
   "scripts": {
-    "start": "node index.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "mongodb": "^5.7.0"
+    "mongodb": "^5.8.0"
   }
 }
+f
